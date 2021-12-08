@@ -595,3 +595,7 @@ internal static Action SeparatedClosures()
 C# compiler generates an individual closure for each lexical scopes, so the above 2 local function are compiled to 2 separated closures. If the returned LocalFunction2 is persisted, only tempSmallInstance is persisted along with LocalFunction2’s closure.
 
 So, whenever a local function may live longer than the execution of outer function, free variable must be used with caution. Other languages supporting closure in similar way, like JavaScript, etc., has the same pitfall.
+
+# Static local function
+
+C# 8.0 introduces static local function. Closure is disabled when static keyword is used to define local function.
