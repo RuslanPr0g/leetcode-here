@@ -422,3 +422,176 @@ internal static void CompiledCopyFreeVariableReference()
 </pre>
 
 Each iteration of the for loop instantiate an independent closure, which captures copyOfFree instead of free. When the for loop is done, each closure’s instance method is called to output its own captured value.
+
+C# closure provides great convenience to enable local function to directly access free variable. Besides allocating structure on stack, closure may also lead to performance pitfall, because it generates closure structure with reference to the accessed free variable, and that reference is not intuitive at all for developers at design time. The following is a closure example with large free variable:
+
+<pre>
+<code>
+internal static partial class LocalFunctions
+{
+    private static Action persisted;
+
+    internal static void FreeVariableLifetime()
+    {
+        byte[] tempLargeInstance = new byte[0x_7FFF_FFC7]; // Temp variable of large instance, Array.MaxByteArrayLength is 0x_7FFF_FFC7.
+
+        // ...
+        void LocalFunction()
+        {
+            // ...
+            int length = tempLargeInstance.Length; // Reference to free variable.
+            // ...
+            length.WriteLine();
+            // …
+        }
+
+        // ...
+        LocalFunction();
+        // ...
+        persisted = LocalFunction; // Reference to local function.
+    }
+}
+</code>
+</pre>
+
+Here temp is a large instance of byte array. It is a temporary local variable of the outer function, and free variable of the local function. It is not explicitly stored to any other variable or field, and supposed to have a short lifetime along with the execution of outer function. However, this temporary variable cannot be garbage collected after the execution of outer function and local function. The reason is, the local function is stored to a static field, and persisted to a long lifetime, so that its free variable should has the same lifetime. The problem is not intuitive at design time. At compile time, the following closure is generated:
+
+
+<pre>
+<code>
+[CompilerGenerated]
+
+private sealed class Closure5
+
+{
+
+    public byte[] TempLargeInstance;
+
+ 
+
+    internal void LocalFunction()
+
+    {
+
+        int length = this.TempLargeInstance.Length;
+
+        length.WriteLine();
+
+    }
+
+}
+
+ 
+
+internal static void CompiledFreeVariableLifetime()
+
+{
+
+    byte[] tempLargeInstance = new byte[0X7FFFFFC7];
+
+    Closure5 closure = new Closure5() { TempLargeInstance = tempLargeInstance };
+
+    closure.LocalFunction();
+
+    persisted = closure.LocalFunction;
+
+    // closure's lifetime is bound to persisted, so is closure.TempLargeInstance.
+
+}
+</code>
+</pre>
+
+The large array is captured as a field of the closure structure, which is expected since it is the free variable of the local function. Since the local function is stored, it is also compiled to be a method member of the closure structure. Here comes the problem. When the outer function stores the local function to the static field, it actually instantiates the closure, and stores closure’s instance method to the static field. Since the instance method’s lifetime is persisted, the entire closure instance is persisted with a long lifetime. after the execution of outer function and local function, the closure along cannot be deallocated, with its field of large array not able to be garbage collected, which causes memory leak issue. To fix the issue, consider a different design where local function is not persisted, or local function does not access large instance through free variable.
+
+Multiple local functions in one function may share the same closure, which may also lead to memory leak. The following example’s problem is even more obscure:
+
+<pre>
+<code>
+internal static Action SharedClosure()
+{
+    byte[] tempLargeInstance = new byte[0x_7FFF_FFC7];
+
+    void LocalFunction1() { int length = tempLargeInstance.Length; }
+
+    LocalFunction1();
+
+    bool tempSmallInstance = false;
+
+    void LocalFunction2() { tempSmallInstance = true; }
+
+    LocalFunction2();
+
+    return LocalFunction2; // Return a function of Action type.
+}
+
+internal static void CallSharedClosure()
+{
+    persisted = SharedClosure(); // Returned LocalFunction2 is persisted.
+}
+</code>
+</pre>
+
+Here LocalFunction2 only accesses free variable tempSmallInstance, and has nothing to do with tempLargeInstance. However, if SharedClosure is called and the returned LocalFunction2 is persisted, tempLargeInstance is still leaked and cannot be garbage collected. Again, the problem is invisible at design time, but intuitive at compile time:
+
+
+<pre>
+<code>
+[CompilerGenerated]
+
+private struct Closure6
+{
+    public byte[] TempLargeInstance;
+
+    internal void LocalFunction1() { int length = this.TempLargeInstance.Length; }
+
+    public bool TempSmallInstance;
+
+    internal void LocalFunction2() { this.TempSmallInstance = true; }
+}
+
+internal static Action CompiledSharedClosure()
+{
+    Closure6 closure = new Closure6();
+
+    closure.TempLargeInstance = new byte[0x_7FFF_FFC7];
+
+    closure.LocalFunction1();
+
+    closure.TempSmallInstance = false;
+
+    closure.LocalFunction2();
+
+    return closure.LocalFunction2; // Return a function of Action type.
+}   
+</code>
+</pre>
+
+C# compiler can generate one shared closure structure for multiple local functions and their free variables. If one local function is persisted, the shared closure is persisted, along with all captured free variables of all local functions. Besides a different design not persisting local function or not accessing large free variable, another possible improvement is to separate local functions to different lexical scopes:
+
+<pre>
+<code>
+internal static Action SeparatedClosures()
+{
+    { // Lexical scope has its own closure.
+
+        byte[] tempLargeInstance = new byte[0x_7FFF_FFC7];
+
+        void LocalFunction1() { int length = tempLargeInstance.Length; }
+
+        LocalFunction1();
+    }
+
+    bool tempSmallInstance = false;
+
+    void LocalFunction2() { tempSmallInstance = true; }
+
+    LocalFunction2();
+
+    return LocalFunction2; // Return a function of Action type.
+}
+</code>
+</pre>
+
+C# compiler generates an individual closure for each lexical scopes, so the above 2 local function are compiled to 2 separated closures. If the returned LocalFunction2 is persisted, only tempSmallInstance is persisted along with LocalFunction2’s closure.
+
+So, whenever a local function may live longer than the execution of outer function, free variable must be used with caution. Other languages supporting closure in similar way, like JavaScript, etc., has the same pitfall.
