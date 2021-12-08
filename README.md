@@ -173,3 +173,4 @@ internal static int BinarySearchWithLocalFunction<T>(this IList<T> source, T val
 }
 </code>
 </pre>
+
