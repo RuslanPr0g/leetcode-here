@@ -174,3 +174,7 @@ internal static int BinarySearchWithLocalFunction<T>(this IList<T> source, T val
 </code>
 </pre>
 
+C# local function supports closure, so above local function can be further simplified
+<br/>
+Local function is also useful with asynchronous function and generator function to isolate the asynchronous execution and deferred execution
+
