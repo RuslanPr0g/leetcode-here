@@ -282,3 +282,114 @@ C# compiler generates:
 - A normal method member definition to represent the local function, with a closure parameter. In its body, the reference to free variable is compiled to reference to closure’s field.
 -   A normal method member call with a closure argument, whose field is initialized with the free variable. The instantiated closure is passed to the generated method member as alias to avoid copying the closure instance, since it is a structure. Function input as alias is discussed in the function input and output chapter.
 
+So, C# compiler implements closure, a functional feature, by generating object-oriented code.
+
+The above binary search function’s local function accesses the source to search, target value, and comparer through parameter. With closure, the local function does not need these parameters. It can directly access them as free variable:
+
+<pre>
+<code>
+internal static int BinarySearchWithClosure<T>(this IList<T> source, T value, IComparer<T> comparer = null)
+
+{
+
+    int BinarySearch(int startIndex, int endIndex)
+
+    {
+
+        if (startIndex > endIndex) { return -1; }
+
+        int middleIndex = startIndex + (endIndex - startIndex) / 2;
+
+        int compare = comparer.Compare(source[middleIndex], value);
+
+        if (compare == 0) { return middleIndex; }
+
+        return compare > 0
+
+            ? BinarySearch(startIndex, middleIndex - 1)
+
+            : BinarySearch(middleIndex + 1, endIndex);
+
+    }
+
+    comparer = comparer ?? Comparer<T>.Default;
+
+    return BinarySearch(0, source.Count - 1);
+
+}
+</code>
+</pre>
+
+It is compiled to the same closure structure and method member pattern:
+
+<pre>
+<code>
+[CompilerGenerated]
+
+[StructLayout(LayoutKind.Auto)]
+
+private struct Closure2<T>
+
+{
+
+    public IComparer<T> Comparer;
+
+ 
+
+    public IList<T> Source;
+
+ 
+
+    public T Value;
+
+}
+
+ 
+
+[CompilerGenerated]
+
+private static int CompiledLocalBinarySearch<T>(int startIndex, int endIndex, ref Closure2<T> closure)
+
+{
+
+    if (startIndex > endIndex) { return -1; }
+
+    int middleIndex = startIndex + (endIndex - startIndex) / 2;
+
+    int compare = closure.Comparer.Compare(closure.Source[middleIndex], closure.Value);
+
+    if (compare == 0) { return middleIndex; }
+
+    return compare <= 0
+
+        ? CompiledLocalBinarySearch(middleIndex + 1, endIndex, ref closure)
+
+        : CompiledLocalBinarySearch(startIndex, middleIndex - 1, ref closure);
+
+}
+
+ 
+
+internal static int CompiledBinarySearchWithClosure<T>(IList<T> source, T value, IComparer<T> comparer = null)
+
+{
+
+    Closure2<T> closure = new Closure2<T>()
+
+    {
+
+        Source = source,
+
+        Value = value,
+
+        Comparer = comparer
+
+    };
+
+    return CompiledLocalBinarySearch(0, source.Count - 1, ref closure);
+
+}
+</code>
+</pre>
+
+As demonstrated above, when the local function has multiple free variables, it still has 1 closure parameter. The closure structure defines multiple fields to capture all free variable and pass to the local function as parameter.
