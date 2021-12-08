@@ -351,3 +351,74 @@ internal static void CompiledFreeVariableReference()
 }
 </code>
 </pre>
+
+This can be resolved by capture a snapshot of shared free’s current value in each iteration, and store it in another variable that does not mutate:
+
+<pre>
+<code>
+internal static void CopyFreeVariableReference()
+
+{
+
+    List<Action> localFunctions = new List<Action>();
+
+    for (int free = 0; free < 3; free++) // free is 0, 1, 2.
+
+    {
+
+        int copyOfFree = free;
+
+        // When free mutates, copyOfFree does not mutate.
+
+        void LocalFunction() { copyOfFree.WriteLine(); }
+
+        localFunctions.Add(LocalFunction);
+
+    } // free is 3. copyOfFree is 0, 1, 2.
+
+    foreach (Action localFunction in localFunctions)
+
+    {
+
+        localFunction(); // 0 1 2
+
+    }
+
+}
+</code>
+</pre>
+
+In each iteration of for loop, free is copied to copyOfFree. copyOfFree is not shared cross the iterations and does not mutate. When the for loop is done, 3 local function calls output the values of 3 snapshot values 0, 1, 2.. Above code is compiled to:
+
+<pre>
+<code>
+[CompilerGenerated]
+private sealed class Closure4
+{
+    public int CopyOfFree;
+
+    internal void LocalFunction() { this.CopyOfFree.WriteLine(); }
+}
+
+internal static void CompiledCopyFreeVariableReference()
+{
+    List<Action> localFunctions = new List<Action>();
+
+    for (int free = 0; free < 3; free++)
+    {
+        Closure4 closure = new Closure4() { CopyOfFree = free }; // free is 0, 1, 2.
+
+        // When free changes, closure.CopyOfFree does not change.
+        localFunctions.Add(closure.LocalFunction);
+
+    } // free is 3. closure.CopyOfFree is 0, 1, 2.
+
+    foreach (Action localFunction in localFunctions)
+    {
+        localFunction(); // 0 1 2
+    }
+}
+</code>
+</pre>
+
+Each iteration of the for loop instantiate an independent closure, which captures copyOfFree instead of free. When the for loop is done, each closure’s instance method is called to output its own captured value.
