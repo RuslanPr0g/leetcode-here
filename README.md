@@ -178,3 +178,29 @@ C# local function supports closure, so above local function can be further simpl
 <br/>
 Local function is also useful with asynchronous function and generator function to isolate the asynchronous execution and deferred execution
 
+## Closure
+
+In object-oriented programming, it is “perfectly nature normal thing” for a type’s method member to use local variable and field member:
+<pre>
+<code>
+internal class Closure
+
+{
+
+    int field = 1; // Outside function Add.
+
+ 
+
+    internal void Add()
+
+    {
+
+        int local = 2; // Inside function Add.
+
+        (local + field).WriteLine(); // local + this.field.
+
+    }
+
+}
+</code>
+</pre>
