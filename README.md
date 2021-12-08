@@ -204,3 +204,80 @@ internal class Closure
 }
 </code>
 </pre>
+
+Here in Closure type, its method accesses data inside and outside its definition. Similarly, local function can access variable inside and outside its definition as well:
+
+<pre>
+<code>
+internal static void LocalFunctionWithClosure()
+
+{
+
+    int free = 1; // Outside local function Add.
+
+    void Add()
+
+    {
+
+        int local = 2; // Inside local function Add.
+
+        (local + free).WriteLine();
+
+    }
+
+    Add();
+
+}
+</code>
+</pre>
+
+Here free is a variable defined by outer function and is outside the local function. In C# it can be accessed by both the outer function and the local function. It is the local variable of the outer function, and it is called free variable of the local function. In another word, for a local function, if a variable is neither its local variable, nor its parameter, then this variable is its free variable. Free variable is also called outer variable, non-local variable, or captured variable. This capability for local function to access a free variable, is called closure. C# closure is also a syntactic sugar. The above example is compiled to a closure structure:
+
+<pre>
+<code>
+[CompilerGenerated]
+
+[StructLayout(LayoutKind.Auto)]
+
+private struct Closure1
+
+{
+
+    public int Free;
+
+}
+
+ 
+
+[CompilerGenerated]
+
+private static void CompiledAdd(ref Closure1 closure)
+
+{
+
+    int local = 2;
+
+    (local + closure.Free).WriteLine();
+
+}
+
+ 
+
+internal static void CompiledLocalFunctionWithClosure()
+
+{
+
+    int free = 1;
+
+    Closure1 closure = new Closure1() { Free = free };
+
+    CompiledAdd(ref closure);
+
+}
+</code>
+</pre>
+
+C# compiler generates:
+- A closure structure to capture the free variable as field.
+- A normal method member definition to represent the local function, with a closure parameter. In its body, the reference to free variable is compiled to reference to closure’s field.
+-   A normal method member call with a closure argument, whose field is initialized with the free variable. The instantiated closure is passed to the generated method member as alias to avoid copying the closure instance, since it is a structure. Function input as alias is discussed in the function input and output chapter.
