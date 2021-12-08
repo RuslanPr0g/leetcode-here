@@ -393,3 +393,120 @@ internal static int CompiledBinarySearchWithClosure<T>(IList<T> source, T value,
 </pre>
 
 As demonstrated above, when the local function has multiple free variables, it still has 1 closure parameter. The closure structure defines multiple fields to capture all free variable and pass to the local function as parameter.
+
+# Free variable mutation
+
+Apparently, free variable is variable and it can mutate. When mutation happens, the accessing local functions can be impacted. In the previous example, if the free variable mutates, the local function apparently outputs different sum of local variable and free variable:
+
+<pre>
+<code>
+internal static void FreeVariableMutation()
+
+{
+
+    int free = 1;
+
+ 
+
+    void Add()
+
+    {
+
+        int local = 2;
+
+        (local + free).WriteLine();
+
+    }
+
+ 
+
+    Add(); // 3
+
+    free = 3; // Free variable mutates.
+
+    Add(); // 5
+
+}
+</code>
+</pre>
+
+Sometimes, this can be source of problems.
+
+
+<pre>
+<code>
+internal static void FreeVariableReference()
+
+{
+
+    List<Action> localFunctions = new List<Action>();
+
+    for (int free = 0; free < 3; free++) // free is 0, 1, 2.
+
+    {
+
+        void LocalFunction() { free.WriteLine(); }
+
+        localFunctions.Add(LocalFunction);
+
+    } // free is 3.
+
+    foreach (Action localFunction in localFunctions)
+
+    {
+
+        localFunction(); // 3 3 3 (instead of 0 1 2)
+
+    }
+
+}
+</code>
+</pre>
+
+In this case, the for loop has 3 iterations. In the first iteration, free is 0, a local function is defined to output free’s value, and the local function is stored to a function list. In the second iteration, free becomes 1, a local function is repeatedly defined to write free’s value, and stored in function list, and so on. Later, when calling these stored local functions, they do not output 0, 1, 2, but 3, 3, 3. The reason is, the 3 iterations of for loop share the same free variable, when the for loop is done, the free’s value becomes 3. Then, calling these 3 functions outputs the latest value of outer for 3 times, so it is 3, 3, 3. The compiled code is more intuitive. Notice the local function is compiled to a method member of closure structure, since it is stored:
+
+<pre>
+<code>
+[CompilerGenerated]
+
+private struct Closure3
+
+{
+
+    public int Free;
+
+
+
+    internal void LocalFunction() { this.Free.WriteLine(); }
+
+}
+
+
+
+internal static void CompiledFreeVariableReference()
+
+{
+
+   List<Action> localFunctions = new List<Action>();
+
+    Closure3 closure = new Closure3();
+
+    for (closure.Free = 0; closure.Free < 3; closure.Free++) // free is 0, 1, 2.
+
+    {
+
+        localFunctions.Add(closure.LocalFunction);
+
+    } // closure.Free is 3.
+
+    foreach (Action localFunction in localFunctions)
+
+    {
+
+        localFunction(); // 3 3 3 (instead of 0 1 2)
+
+    }
+
+}
+</code>
+</pre>
