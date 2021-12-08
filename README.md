@@ -4,47 +4,29 @@ C# 7.0 introduces local function, which allows defining and calling a named, nes
 <pre>
 <code>
 internal static void MethodWithLocalFunction()
-
 {
-
     void LocalFunction() // Define local function.
-
     {
-
         MethodBase.GetCurrentMethod().Name.WriteLine();
-
     }
-
     LocalFunction(); // Call local function.
-
 }
 
- 
-
 internal static int PropertyWithLocalFunction
-
 {
-
     get
-
     {
-
         LocalFunction(); // Call local function.
 
         void LocalFunction() // Define local function.
-
         {
-
             MethodBase.GetCurrentMethod().Name.WriteLine();
-
         }
 
         LocalFunction(); // Call local function.
 
         return 0;
-
     }
-
 }
 </code>
 </pre>
@@ -56,21 +38,13 @@ Local function is a syntactic sugar. Its definition is compiled to normal method
 [CompilerGenerated]
 
 internal static void CompiledLocalFunction()
-
 {
-
     MethodBase.GetCurrentMethod().Name.WriteLine();
-
 }
 
-
-
 internal static void CompiledMethodWithLocalFunction()
-
 {
-
     CompiledLocalFunction();
-
 }
 </code>
 </pre>
@@ -80,21 +54,14 @@ Besides method members, local function can also be nested inside local function:
 <pre>
 <code>
 internal static void LocalFunctionWithLocalFunction()
-
 {
-
     void LocalFunction()
-
     {
-
         void NestedLocalFunction() { }
 
         NestedLocalFunction();
-
     }
-
     LocalFunction();
-
 }
 </code>
 </pre>
@@ -104,36 +71,25 @@ Anonymous function can have local function as well
 <pre>
 <code>
 internal static Action AnonymousFunctionWithLocalFunction()
-
 {
-
     return () => // Return an anonymous function of type Action.
-
     {
-
         void LocalFunction() { }
-
         LocalFunction();
-
     };
-
 }
 </code>
 </pre>
 
 Unlike other named functions, local function does not support ad hoc polymorphism (overload). The following code cannot be compiled:
 
-
 <pre>
 <code>
 internal static void LocalFunctionOverload()
-
 {
-
     void LocalFunction() { }
 
     void LocalFunction(int int32) { } // Cannot be compiled.
-
 }
 </code>
 </pre>
@@ -143,15 +99,10 @@ Local function is useful to encapsulate code execution in a function. For exampl
 <pre>
 <code>
 internal static int BinarySearchWithLocalFunction<T>(this IList<T> source, T value, IComparer<T> comparer = null)
-
 {
-
     int BinarySearch(
-
         IList<T>localSource, T localValue, IComparer<T>localComparer, int startIndex, int endIndex)
-
     {
-
         if (startIndex > endIndex) { return -1; }
 
         int middleIndex = startIndex + (endIndex - startIndex) / 2;
@@ -169,7 +120,6 @@ internal static int BinarySearchWithLocalFunction<T>(this IList<T> source, T val
     }
 
     return BinarySearch(source, value, comparer ?? Comparer<T>.Default, 0, source.Count - 1);
-
 }
 </code>
 </pre>
@@ -184,23 +134,14 @@ In object-oriented programming, it is “perfectly nature normal thing” for a 
 <pre>
 <code>
 internal class Closure
-
 {
-
     int field = 1; // Outside function Add.
 
- 
-
     internal void Add()
-
     {
-
         int local = 2; // Inside function Add.
-
         (local + field).WriteLine(); // local + this.field.
-
     }
-
 }
 </code>
 </pre>
@@ -210,23 +151,15 @@ Here in Closure type, its method accesses data inside and outside its definition
 <pre>
 <code>
 internal static void LocalFunctionWithClosure()
-
 {
-
     int free = 1; // Outside local function Add.
-
     void Add()
-
     {
-
         int local = 2; // Inside local function Add.
 
         (local + free).WriteLine();
-
     }
-
     Add();
-
 }
 </code>
 </pre>
@@ -236,43 +169,24 @@ Here free is a variable defined by outer function and is outside the local funct
 <pre>
 <code>
 [CompilerGenerated]
-
 [StructLayout(LayoutKind.Auto)]
-
 private struct Closure1
-
 {
-
     public int Free;
-
 }
-
- 
 
 [CompilerGenerated]
-
 private static void CompiledAdd(ref Closure1 closure)
-
 {
-
     int local = 2;
-
     (local + closure.Free).WriteLine();
-
 }
 
- 
-
 internal static void CompiledLocalFunctionWithClosure()
-
 {
-
     int free = 1;
-
     Closure1 closure = new Closure1() { Free = free };
-
     CompiledAdd(ref closure);
-
 }
 </code>
 </pre>
@@ -289,13 +203,9 @@ The above binary search function’s local function accesses the source to searc
 <pre>
 <code>
 internal static int BinarySearchWithClosure<T>(this IList<T> source, T value, IComparer<T> comparer = null)
-
 {
-
     int BinarySearch(int startIndex, int endIndex)
-
     {
-
         if (startIndex > endIndex) { return -1; }
 
         int middleIndex = startIndex + (endIndex - startIndex) / 2;
@@ -315,7 +225,6 @@ internal static int BinarySearchWithClosure<T>(this IList<T> source, T value, IC
     comparer = comparer ?? Comparer<T>.Default;
 
     return BinarySearch(0, source.Count - 1);
-
 }
 </code>
 </pre>
@@ -325,33 +234,19 @@ It is compiled to the same closure structure and method member pattern:
 <pre>
 <code>
 [CompilerGenerated]
-
 [StructLayout(LayoutKind.Auto)]
-
 private struct Closure2<T>
-
 {
-
     public IComparer<T> Comparer;
-
- 
 
     public IList<T> Source;
 
- 
-
     public T Value;
-
 }
 
- 
-
 [CompilerGenerated]
-
 private static int CompiledLocalBinarySearch<T>(int startIndex, int endIndex, ref Closure2<T> closure)
-
 {
-
     if (startIndex > endIndex) { return -1; }
 
     int middleIndex = startIndex + (endIndex - startIndex) / 2;
@@ -365,29 +260,18 @@ private static int CompiledLocalBinarySearch<T>(int startIndex, int endIndex, re
         ? CompiledLocalBinarySearch(middleIndex + 1, endIndex, ref closure)
 
         : CompiledLocalBinarySearch(startIndex, middleIndex - 1, ref closure);
-
 }
 
- 
-
 internal static int CompiledBinarySearchWithClosure<T>(IList<T> source, T value, IComparer<T> comparer = null)
-
 {
-
     Closure2<T> closure = new Closure2<T>()
-
     {
-
         Source = source,
-
         Value = value,
-
         Comparer = comparer
-
     };
 
     return CompiledLocalBinarySearch(0, source.Count - 1, ref closure);
-
 }
 </code>
 </pre>
@@ -401,64 +285,40 @@ Apparently, free variable is variable and it can mutate. When mutation happens, 
 <pre>
 <code>
 internal static void FreeVariableMutation()
-
 {
-
     int free = 1;
 
- 
-
     void Add()
-
     {
-
         int local = 2;
-
         (local + free).WriteLine();
-
     }
 
- 
-
     Add(); // 3
-
     free = 3; // Free variable mutates.
-
     Add(); // 5
-
 }
 </code>
 </pre>
 
 Sometimes, this can be source of problems.
 
-
 <pre>
 <code>
 internal static void FreeVariableReference()
-
 {
-
     List<Action> localFunctions = new List<Action>();
-
     for (int free = 0; free < 3; free++) // free is 0, 1, 2.
-
     {
-
         void LocalFunction() { free.WriteLine(); }
 
         localFunctions.Add(LocalFunction);
-
     } // free is 3.
-
+    
     foreach (Action localFunction in localFunctions)
-
     {
-
         localFunction(); // 3 3 3 (instead of 0 1 2)
-
     }
-
 }
 </code>
 </pre>
@@ -468,45 +328,26 @@ In this case, the for loop has 3 iterations. In the first iteration, free is 0, 
 <pre>
 <code>
 [CompilerGenerated]
-
 private struct Closure3
-
 {
-
     public int Free;
 
-
-
     internal void LocalFunction() { this.Free.WriteLine(); }
-
 }
 
-
-
 internal static void CompiledFreeVariableReference()
-
 {
-
-   List<Action> localFunctions = new List<Action>();
-
+    List<Action> localFunctions = new List<Action>();
     Closure3 closure = new Closure3();
-
     for (closure.Free = 0; closure.Free < 3; closure.Free++) // free is 0, 1, 2.
-
     {
-
         localFunctions.Add(closure.LocalFunction);
-
     } // closure.Free is 3.
-
+    
     foreach (Action localFunction in localFunctions)
-
     {
-
         localFunction(); // 3 3 3 (instead of 0 1 2)
-
     }
-
 }
 </code>
 </pre>
